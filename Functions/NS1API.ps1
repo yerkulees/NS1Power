@@ -1,26 +1,4 @@
-﻿<# 
-
-# Rate Limiting
-NS1 Takes adavantage of Rate Limiting so we're using Invoke-WebRequest instead of
-Invoke-RestMethod to utilize the rate limiting headers. All Rate Limiting logic 
-should happen within the Invoke-NS1APIRequest function. All other functions should
-send API requests through that function
-
-https://ns1.com/knowledgebase/api-rate-limiting
-
-Response should be:
-String
-Hash (ConvertFrom-Json)
-
-Microsoft.PowerShell.Commands.HtmlWebResponseObject
-
-# API Key
-The API key is protected using the secure string method used by powershell to 
-encrypt all credentials. 
-
-#>
-
-#Vars
+﻿#Vars
 $BaseURI = "https://api.nsone.net/v1"
 
 $Global:NS1RateLimits = @{}
@@ -53,7 +31,6 @@ This function handles the actual web request, api limiting, and error handling f
 Don't use cmdlet directly unless necessary.
 
 .DESCRIPTION
-
 
 #>
     [cmdletbinding()]
@@ -391,6 +368,7 @@ Function New-NS1Record {
 <#
 
 .SYNOPSIS
+Create an NS1 dns record. 
 
 .PARAMETER Answers
 This is an Array of Objects but looks different depending on the record type.
@@ -412,24 +390,28 @@ https://ns1.com/api#putcreate-a-new-dns-record
     [cmdletbinding()]
     Param(
         [Parameter(
+            Position=0,
             ParameterSetName="answer",
             Mandatory=$true
         )]
         [String]$zone,
         [Alias("Record")]
         [Parameter(
+            Position=1,
             ParameterSetName="answer",
             Mandatory=$true
         )]
         [String]$domain,
         [Alias("RecordType")]
         [Parameter(
+            Position=2,
             ParameterSetName="answer",
             Mandatory=$true
         )]
         [ValidateSet("A", "AAAA", "ALIAS", "AFSDB", "CERT", "CNAME", "DNAME", "HINFO", "MX", "NAPTR", "NS", "PTR", "RP", "SPF", "SRV", "TXT")]
         [String]$Type,
         [Parameter(
+            Position=3,
             ParameterSetName="answer",
             Mandatory=$true
         )]
@@ -442,15 +424,6 @@ https://ns1.com/api#putcreate-a-new-dns-record
         "type"=$Type;
         "answers"=@($answers |ForEach-Object{@{"answer" = @($_)}});
     }
-
-    <#
-    $BodyAsHash = @{
-        "zone"=$zone;
-        "domain"=$domain;
-        "type"=$Type;
-    }
-    #>
-    #$BodyAsHash.Add("answers",$(ConvertTo-json -InputObject $($answers |%{@{"answer" = @("$_")}})))
 
     $Body = ConvertTo-Json -InputObject $BodyAsHash -Depth 3
 
@@ -484,24 +457,28 @@ https://ns1.com/api#putcreate-a-new-dns-record
     [cmdletbinding()]
     Param(
         [Parameter(
+            Position=0,
             ParameterSetName="answer",
             Mandatory=$true
         )]
         [String]$zone,
         [Alias("Record")]
         [Parameter(
+            Position=1,
             ParameterSetName="answer",
             Mandatory=$true
         )]
         [String]$domain,
         [Alias("RecordType")]
         [Parameter(
+            Position=2,
             ParameterSetName="answer",
             Mandatory=$true
         )]
         [ValidateSet("A", "AAAA", "ALIAS", "AFSDB", "CERT", "CNAME", "DNAME", "HINFO", "MX", "NAPTR", "NS", "PTR", "RP", "SPF", "SRV", "TXT")]
         [String]$Type,
         [Parameter(
+            Position=3,
             ParameterSetName="answer",
             Mandatory=$true
         )]
@@ -515,15 +492,6 @@ https://ns1.com/api#putcreate-a-new-dns-record
         "answers"=@($answers |ForEach-Object{@{"answer" = @($_)}});
     }
 
-    <#
-    $BodyAsHash = @{
-        "zone"=$zone;
-        "domain"=$domain;
-        "type"=$Type;
-    }
-    #>
-    #$BodyAsHash.Add("answers",$(ConvertTo-json -InputObject $($answers |%{@{"answer" = @("$_")}})))
-
     $Body = ConvertTo-Json -InputObject $BodyAsHash -Depth 3
 
     Write-Debug "Body: $Body"
@@ -532,30 +500,52 @@ https://ns1.com/api#putcreate-a-new-dns-record
 }
 
 Function Remove-NS1Zone {
+<#
+.SYNOPSIS
+Remove an NS1 record or zone.
+
+.EXAMPLE
+Remove-NS1Zone -Zone myfirsttestzone.com
+
+Removes a zone
+
+.EXAMPLE
+Remove-NS1Zone myfirsttestzone.com test.myfirsttestzone.com A
+
+Removes an A record
+
+#>
     [cmdletbinding()]
     param(
         [Parameter(
+            Position=0,
+            ValueFromPipeline=$true,
             ParameterSetName="Zone",
             Mandatory=$true
         )]
         [Parameter(
+            Position=0,
+            ValueFromPipelineByPropertyName=$true,
             ParameterSetName="Record",
             Mandatory=$true
         )]
         $Zone,
         [Alias("Record")]
         [Parameter(
+            Position=1,
+            ValueFromPipelineByPropertyName=$true,
             ParameterSetName="Record",
             Mandatory=$true
         )]
         $Domain,
         [Alias("RecordType")]
         [Parameter(
+            Position=2,
+            ValueFromPipelineByPropertyName=$true,
             ParameterSetName="Record",
             Mandatory=$true
         )]
         $Type
-
     )
 
     Switch($PSCmdlet.ParameterSetName){
@@ -795,20 +785,58 @@ https://ns1.com/api#create-a-new-dns-zone
 }
 
 Function Find-NS1Zone {
+<#
+.SYNOPSIS
+Queries NS1 for zones or records
+
+.EXAMPLE
+Find-NS1Zone -querystring myfirst
+
+Searches for zones and records that begin with "myfirst"
+
+zone
+----
+myfirsttestzone.com
+myfirsttestzone.com
+myfirsttestzone.com
+
+.EXAMPLE
+Find-NS1Zone myfirst record
+
+Searches for records that begin with "myfirst"
+
+domain              type zone
+------              ---- ----
+myfirsttestzone.com NS   myfirsttestzone.com
+myfirsttestzone.com MX   myfirsttestzone.com
+
+.EXAMPLE
+Find-NS1Zone blahblah.myfirst all
+
+Searches for zones that begin with "blahblah.myfirst"
+
+domain                       type zone
+------                       ---- ----
+blahblah.myfirsttestzone.com A    myfirsttestzone.com
+
+#>
     [cmdletbinding()]
     Param(
         [Alias("q")]
         [Parameter(
+            position=0,
             mandatory=$true
         )]
         [String]$querystring,
         [Parameter(
+            position=2,
             mandatory=$false
         )]
         [Int]$max,
         [Alias("RecordType")]
         [ValidateSet("zone","record","all")]
         [Parameter(
+            Position=1,
             mandatory=$false
         )]
         [String]$Type
@@ -817,7 +845,7 @@ Function Find-NS1Zone {
     $URI = "$BaseURI/search?q=$querystring"
 
     if($max){$URI = "$URI/&max=$max"}
-    if($type){$URI = "$URI/&type=$type"}
+    if($type){$URI = "$URI/&type=$($type.ToLower())"}
 
     Invoke-NS1APIRequest -URI $URI -Method Get
 
@@ -843,6 +871,17 @@ Function Get-NS1FilterTypes {
 
 # Begin QPS Functions
 Function Get-NS1UsageStats {
+<#
+.SYNOPSIS
+
+.EXAMPLE
+Get-NS1UsageStats -zone myfirsttestzone.com -domain www.myfirsttestzone.com -Type A
+
+.EXAMPLE
+Get-NS1ZoneRecord myfirsttestzone.com www.myfirsttestzone.com A | Get-NS1UsageStats -period 30d
+
+#>
+
     [cmdletbinding(
         DefaultParameterSetName="AllZones"
     )]
