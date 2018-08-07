@@ -1,4 +1,3 @@
-. .\Environment.ps1
+. $PSScriptRoot\Environment.ps1
 
-Get-Item .\Functions\*
-
+Get-ChildItem $PSScriptRoot\Functions\* | ForEach-Object {. $_.FullName }
