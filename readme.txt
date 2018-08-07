@@ -5,8 +5,9 @@ variables.
 Once the module is loaded, you need to set the API key using:
 Set-NS1KeyFile
 
-This advanced function only accepts cmdline info and writes the encrypted output to $KeyPath.
-From that point on Invoke-NS1APIRequest will read from that file and decrypt the data each time.
+This advanced function accepts cmdline info or a secure string object and writes the 
+encrypted output to $KeyPath. From that point on Invoke-NS1APIRequest will read from 
+that file and decrypt the data each time a function is called.
 
 Then you are ready to go.
 

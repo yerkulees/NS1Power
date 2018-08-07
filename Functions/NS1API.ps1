@@ -5,17 +5,67 @@ $Global:NS1RateLimits = @{}
 
 # Setting and Retrieving the API Key
 Function Set-NS1KeyFile {
-    Read-Host -Prompt "Enter API Key:" -AsSecureString | ConvertFrom-SecureString | Set-Content $KeyPath
+<#
+
+.SYNOPSIS
+Converts the NS1 API Key to a secure string then sets the KeyFile
+
+.DESCRIPTION
+Sets the encrypted NS1 API key into a file to be used later.
+
+You can also send a Secure String Object via pipeline or the SecureString parameter to the function to avoid manually typing the key.
+
+.EXAMPLE
+Set-NS1KeyFile 
+
+Requires the a user enter the API key host prompt.
+
+.EXAMPLE
+Set-NS1KeyFile -SecureString (Read-Host -Prompt "Enter API Key:" -AsSecureString)
+
+Sends a Secure String Object to be used as the API Key
+
+.EXAMPLE
+Get-Content .\SecureString\Path\file.txt | ConvertTo-SecureString | Set-NS1KeyFile
+
+Sends a Secure String Object through the pipeline to be used as the API Key
+
+#>
+    [cmdletbinding(
+        DefaultParameterSetName="ReadHost"
+    )]
+    Param(
+        [Parameter(
+            ParameterSetName="SecureStringObject",
+            ValueFromPipeline=$true,
+            Position=0
+        )]
+        [System.Security.SecureString]$SecureString
+    )
+
+    Switch($PSCmdlet.ParameterSetName){
+        "Readhost" {
+            Read-Host -Prompt "Enter API Key:" -AsSecureString | Export-Clixml -Path $KeyPath
+        }
+        "SecureStringObject" {
+            $SecureString | Export-Clixml -Path $KeyPath
+        }
+    }
+    
 }
 
 Function Get-NS1APIKey {
     if(Test-Path $KeyPath){
-        $SecurePassword = Get-Content $KeyPath | ConvertTo-SecureString
+        try{
+            $SecurePassword = Import-Clixml $KeyPath
+        }catch{
+            $SecurePassword = Get-Content $KeyPath | ConvertTo-SecureString
+        }
+
         $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePassword)
         [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
     }else{
         Write-Error "API Key was called but key file does not exist. Use Set-NS1KeyFile to set the NS1 key file"
-        Set-NS1KeyFile
     }
 }
 
