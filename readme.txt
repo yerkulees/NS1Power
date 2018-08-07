@@ -1,6 +1,7 @@
 # Getting started
 Firstly you must load the module so that Environment.ps1 runs and creates some important
 variables. 
+Import-Module NS1Power
 
 Once the module is loaded, you need to set the API key using:
 Set-NS1KeyFile
