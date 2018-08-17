@@ -4,7 +4,7 @@ $BaseURI = "https://api.nsone.net/v1"
 $Global:NS1RateLimits = @{}
 
 # Setting and Retrieving the API Key
-Function Set-NS1KeyFile {
+Function Set-KeyFile {
 <#
 
 .SYNOPSIS
@@ -16,17 +16,17 @@ Sets the encrypted NS1 API key into a file to be used later.
 You can also send a Secure String Object via pipeline or the SecureString parameter to the function to avoid manually typing the key.
 
 .EXAMPLE
-Set-NS1KeyFile 
+Set-KeyFile 
 
 Requires the a user enter the API key host prompt.
 
 .EXAMPLE
-Set-NS1KeyFile -SecureString (Read-Host -Prompt "Enter API Key:" -AsSecureString)
+Set-KeyFile -SecureString (Read-Host -Prompt "Enter API Key:" -AsSecureString)
 
 Sends a Secure String Object to be used as the API Key
 
 .EXAMPLE
-Get-Content .\SecureString\Path\file.txt | ConvertTo-SecureString | Set-NS1KeyFile
+Get-Content .\SecureString\Path\file.txt | ConvertTo-SecureString | Set-KeyFile
 
 Sends a Secure String Object through the pipeline to be used as the API Key
 
@@ -54,7 +54,7 @@ Sends a Secure String Object through the pipeline to be used as the API Key
     
 }
 
-Function Get-NS1APIKey {
+Function Get-APIKey {
     if(Test-Path $KeyPath){
         try{
             $SecurePassword = Import-Clixml $KeyPath
@@ -65,15 +65,15 @@ Function Get-NS1APIKey {
         $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePassword)
         [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
     }else{
-        Write-Error "API Key was called but key file does not exist. Use Set-NS1KeyFile to set the NS1 key file"
+        Write-Error "API Key was called but key file does not exist. Use Set-KeyFile to set the NS1 key file"
     }
 }
 
-Function Get-NS1Headers {
-    @{"X-NSONE-Key"= $(Get-NS1APIKey)}
+Function Get-Headers {
+    @{"X-NSONE-Key"= $(Get-APIKey)}
 }
 
-Function Invoke-NS1APIRequest {
+Function Invoke-APIRequest {
 <#
 
 .SYNOPSIS
@@ -136,7 +136,7 @@ Don't use cmdlet directly unless necessary.
     }
 
     try{
-        $WebResponse = Invoke-WebRequest @splat -Headers $(Get-NS1Headers)
+        $WebResponse = Invoke-WebRequest @splat -Headers $(Get-Headers)
 
         # Set the limit data here
         $NS1RateLimits[$method.ToString()] = @{"X-RateLimit-Remaining"=$WebResponse.headers.'X-RateLimit-Remaining';"dateTime"=[datetime]::now}
@@ -174,24 +174,28 @@ Don't use cmdlet directly unless necessary.
 }
 
 # Begin Zone and Records Functions
-Function Get-NS1ZoneRecord {
+Function Get-ZoneRecord {
 <#
 .DESCRIPTION
 This function can get all active zones, the details of a specific zone, or the details of a specific zone record.
 
 .EXAMPLE
-Get-NS1ZoneRecord
+Get-ZoneRecord
 
 .EXAMPLE
-Get-NS1ZoneRecord -Zone MyFirstTestZone.com
+Get-ZoneRecord -Zone MyFirstTestZone.com
 
 .EXAMPLE
-Get-NS1ZoneRecord -Zone MyFirstTestZone.com -Domain www.MyFirstTestZone.com -RecordType AAAA
+Get-ZoneRecord -Zone MyFirstTestZone.com -Domain www.MyFirstTestZone.com -RecordType AAAA
 
 #>
 
     [cmdletbinding(
         DefaultParameterSetName='AllActiveZones'
+    )]
+    [Alias(
+        "Get-Zone",
+        "Get-Record"
     )]
     Param(
         [Parameter(
@@ -233,10 +237,10 @@ Get-NS1ZoneRecord -Zone MyFirstTestZone.com -Domain www.MyFirstTestZone.com -Rec
         "Record" {$URI = "$BaseURI/zones/$Zone/$Domain/$Type"}
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 }
 
-Function New-NS1Zone {
+Function New-Zone {
 <#
 .SYNOPSIS
 Create a standard, secondary or linked zone.
@@ -406,7 +410,7 @@ https://ns1.com/api#create-a-new-dns-zone
 
         $Body = $bodyAsHash | ConvertTo-Json
 
-        Invoke-NS1APIRequest -URI $BaseURI/zones/$Zone -Method Put -Body $Body
+        Invoke-APIRequest -URI $BaseURI/zones/$Zone -Method Put -Body $Body
     }
 
     END{
@@ -414,7 +418,7 @@ https://ns1.com/api#create-a-new-dns-zone
     }
 }
 
-Function New-NS1Record {
+Function New-Record {
 <#
 
 .SYNOPSIS
@@ -428,10 +432,10 @@ For example, 3 MX records looks like @(5,"mx1.mydomain.com"),@(10,"mx2.mydomain.
 For example, 3 A records looks like "1.2.3.4","2.3.4.5","3.4.5.6"
 
 .EXAMPLE
-New-NS1Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type MX -Answers @(5,"mx1.mydomain.com"),@(10,"mx2.mydomain.com"),@(15,"mx1.mydomain.com")
+New-Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type MX -Answers @(5,"mx1.mydomain.com"),@(10,"mx2.mydomain.com"),@(15,"mx1.mydomain.com")
 
 .EXAMPLE
-New-NS1Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type A -Answers "1.2.3.4","2.3.4.5","3.4.5.6"
+New-Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type A -Answers "1.2.3.4","2.3.4.5","3.4.5.6"
 
 .LINK
 https://ns1.com/api#putcreate-a-new-dns-record
@@ -479,10 +483,10 @@ https://ns1.com/api#putcreate-a-new-dns-record
 
     Write-Debug "Body: $Body"
 
-    Invoke-NS1APIRequest -URI "$BaseURI/zones/$zone/$domain/$Type" -Method Put -Body $Body
+    Invoke-APIRequest -URI "$BaseURI/zones/$zone/$domain/$Type" -Method Put -Body $Body
 }
 
-Function Set-NS1Record {
+Function Set-Record {
 <#
 
 .SYNOPSIS
@@ -495,10 +499,10 @@ For example, 3 MX records looks like @(5,"mx1.mydomain.com"),@(10,"mx2.mydomain.
 For example, 3 A records looks like "1.2.3.4","2.3.4.5","3.4.5.6"
 
 .EXAMPLE
-Set-NS1Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type MX -Answers @(5,"mx1.mydomain.com"),@(10,"mx2.mydomain.com"),@(15,"mx1.mydomain.com")
+Set-Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type MX -Answers @(5,"mx1.mydomain.com"),@(10,"mx2.mydomain.com"),@(15,"mx1.mydomain.com")
 
 .EXAMPLE
-Set-NS1Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type A -Answers "1.2.3.4","2.3.4.5","3.4.5.6"
+Set-Record -zone myfirsttestzone.com -domain myfirsttestzone.com -Type A -Answers "1.2.3.4","2.3.4.5","3.4.5.6"
 
 .LINK
 https://ns1.com/api#putcreate-a-new-dns-record
@@ -546,21 +550,21 @@ https://ns1.com/api#putcreate-a-new-dns-record
 
     Write-Debug "Body: $Body"
 
-    Invoke-NS1APIRequest -URI "$BaseURI/zones/$zone/$domain/$Type" -Method Post -Body $Body
+    Invoke-APIRequest -URI "$BaseURI/zones/$zone/$domain/$Type" -Method Post -Body $Body
 }
 
-Function Remove-NS1Zone {
+Function Remove-Zone {
 <#
 .SYNOPSIS
 Remove an NS1 record or zone.
 
 .EXAMPLE
-Remove-NS1Zone -Zone myfirsttestzone.com
+Remove-Zone -Zone myfirsttestzone.com
 
 Removes a zone
 
 .EXAMPLE
-Remove-NS1Zone myfirsttestzone.com test.myfirsttestzone.com A
+Remove-Zone myfirsttestzone.com test.myfirsttestzone.com A
 
 Removes an A record
 
@@ -606,10 +610,10 @@ Removes an A record
             $URI = "$BaseURI/zones/$Zone/$Domain/$Type"
         }
     }
-        Invoke-NS1APIRequest -URI $URI -Method Delete
+        Invoke-APIRequest -URI $URI -Method Delete
 }
 
-Function Set-NS1Zone {
+Function Set-Zone {
 <#
 .SYNOPSIS
 Update or Create a standard, secondary or linked zone.
@@ -626,31 +630,31 @@ Allow use of JSON objects
 
 .EXAMPLE
 
-Set-NS1Zone -Zone MyFirstTestZone.com
+Set-Zone -Zone MyFirstTestZone.com
 
 If the zone exists, it will be set to defaults. If it does not exist it will be created with default values.
 
 .EXAMPLE
 
-Set-NS1Zone -Zone MyFirstTestZone.com
+Set-Zone -Zone MyFirstTestZone.com
 
 If the zone exists, it will be set to defaults. If it does not exist it will be created with default values.
 
 .EXAMPLE
 
-Set-NS1Zone -Zone MyFirstTestZone.com -enabledAsSecondary -primary_ip "192.168.1.1"
+Set-Zone -Zone MyFirstTestZone.com -enabledAsSecondary -primary_ip "192.168.1.1"
 
 If the zone exists, it will be changed to a secondary zone with its primary set to 192.168.1.1, otherwise it will be created.
 
 .EXAMPLE
 
-Set-NS1Zone -Zone MyFirstTestZone.com -enabledAsSecondary $false
+Set-Zone -Zone MyFirstTestZone.com -enabledAsSecondary $false
 
 If the zone exists, it will be changed from a secondary zone to a primary zone, otherwise an attempt will be made to create it.
 
 .EXAMPLE
 
-Set-NS1Zone -Zone MyFirstTestZone.com -TTL 3600 -Refresh 3600 -Retry 600 -Expiry 604800
+Set-Zone -Zone MyFirstTestZone.com -TTL 3600 -Refresh 3600 -Retry 600 -Expiry 604800
 
 If the zone exists, 
 
@@ -810,7 +814,7 @@ https://ns1.com/api#create-a-new-dns-zone
 
     Write-Debug "Body: $Body"
 
-    $WebResponse = Invoke-NS1APIRequest -URI $BaseURI/zones/$Zone -Method Post -Body $Body
+    $WebResponse = Invoke-APIRequest -URI $BaseURI/zones/$Zone -Method Post -Body $Body
 
     Write-Debug "Update $Zone WebRespone: $WebResponse"
 
@@ -824,7 +828,7 @@ https://ns1.com/api#create-a-new-dns-zone
 
         Write-Debug "Body: $Body"
 
-        Invoke-NS1APIRequest -URI $BaseURI/zones/$Zone -Method Put -Body $Body
+        Invoke-APIRequest -URI $BaseURI/zones/$Zone -Method Put -Body $Body
 
     }else{
         Write-Debug "Update success"
@@ -834,13 +838,13 @@ https://ns1.com/api#create-a-new-dns-zone
 
 }
 
-Function Find-NS1Zone {
+Function Find-Zone {
 <#
 .SYNOPSIS
 Queries NS1 for zones or records
 
 .EXAMPLE
-Find-NS1Zone -querystring myfirst
+Find-Zone -querystring myfirst
 
 Searches for zones and records that begin with "myfirst"
 
@@ -851,7 +855,7 @@ myfirsttestzone.com
 myfirsttestzone.com
 
 .EXAMPLE
-Find-NS1Zone myfirst record
+Find-Zone myfirst record
 
 Searches for records that begin with "myfirst"
 
@@ -861,7 +865,7 @@ myfirsttestzone.com NS   myfirsttestzone.com
 myfirsttestzone.com MX   myfirsttestzone.com
 
 .EXAMPLE
-Find-NS1Zone blahblah.myfirst all
+Find-Zone blahblah.myfirst all
 
 Searches for zones that begin with "blahblah.myfirst"
 
@@ -897,38 +901,38 @@ blahblah.myfirsttestzone.com A    myfirsttestzone.com
     if($max){$URI = "$URI/&max=$max"}
     if($type){$URI = "$URI/&type=$($type.ToLower())"}
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 
 }
 
-Function Get-NS1Networks {
+Function Get-Networks {
     [cmdletbinding()]
     Param()
-    Invoke-NS1APIRequest -URI $BaseURI/networks -Method Get
+    Invoke-APIRequest -URI $BaseURI/networks -Method Get
 }
 
-Function Get-NS1Metadata {
+Function Get-Metadata {
     [cmdletbinding()]
     Param()
-    Invoke-NS1APIRequest -URI $BaseURI/metatypes -Method Get
+    Invoke-APIRequest -URI $BaseURI/metatypes -Method Get
 }
 
-Function Get-NS1FilterTypes {
+Function Get-FilterTypes {
     [cmdletbinding()]
     Param()
-    Invoke-NS1APIRequest -URI $BaseURI/filtertypes -Method Get
+    Invoke-APIRequest -URI $BaseURI/filtertypes -Method Get
 }
 
 # Begin QPS Functions
-Function Get-NS1UsageStats {
+Function Get-UsageStats {
 <#
 .SYNOPSIS
 
 .EXAMPLE
-Get-NS1UsageStats -zone myfirsttestzone.com -domain www.myfirsttestzone.com -Type A
+Get-UsageStats -zone myfirsttestzone.com -domain www.myfirsttestzone.com -Type A
 
 .EXAMPLE
-Get-NS1ZoneRecord myfirsttestzone.com www.myfirsttestzone.com A | Get-NS1UsageStats -period 30d
+Get-ZoneRecord myfirsttestzone.com www.myfirsttestzone.com A | Get-UsageStats -period 30d
 
 #>
 
@@ -1037,10 +1041,10 @@ Get-NS1ZoneRecord myfirsttestzone.com www.myfirsttestzone.com A | Get-NS1UsageSt
         $URI = $URI.trimEnd(';')
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 }
 
-Function Get-NS1QPS {
+Function Get-QPS {
     [cmdletbinding(
         DefaultParameterSetName="AccountWide"
     )]
@@ -1083,11 +1087,11 @@ Function Get-NS1QPS {
         }
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method get
+    Invoke-APIRequest -URI $URI -Method get
 
 }
 
-Function Get-NS1DataSources {
+Function Get-DataSources {
     [cmdletbinding(
         DefaultParameterSetName="AllAvailableDataSources"
     )]
@@ -1120,10 +1124,10 @@ Function Get-NS1DataSources {
         }
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 }
 
-Function Get-NS1DataFeeds {
+Function Get-DataFeeds {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1151,10 +1155,10 @@ Function Get-NS1DataFeeds {
         }
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 }
 
-Function New-NS1DataSource {
+Function New-DataSource {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1184,10 +1188,10 @@ Function New-NS1DataSource {
         "sourcetype" = $sourcetype
     }
 
-    Invoke-NS1APIRequest -URI "$BaseURI/data/sources" -Method Put -Body ($bodyAsHash | ConvertTo-Json)
+    Invoke-APIRequest -URI "$BaseURI/data/sources" -Method Put -Body ($bodyAsHash | ConvertTo-Json)
 }
 
-Function Set-NS1DataSource {
+Function Set-DataSource {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1224,11 +1228,11 @@ Function Set-NS1DataSource {
         $BodyAsHash.Add("config",$config)
     }
 
-    Invoke-NS1APIRequest -URI "$BaseURI/data/sources/$SourceID" -Method post -Body ($BodyAsHash | ConvertTo-Json)
+    Invoke-APIRequest -URI "$BaseURI/data/sources/$SourceID" -Method post -Body ($BodyAsHash | ConvertTo-Json)
 
 }
 
-Function Remove-NS1DataSource {
+Function Remove-DataSource {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1237,11 +1241,11 @@ Function Remove-NS1DataSource {
         [String]$SourceID
     )
 
-    Invoke-NS1APIRequest -URI "$BaseURI/data/sources/$SourceID" -Method Delete
+    Invoke-APIRequest -URI "$BaseURI/data/sources/$SourceID" -Method Delete
 
 }
 
-Function New-NS1DataFeed {
+Function New-DataFeed {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1270,10 +1274,10 @@ Function New-NS1DataFeed {
         }
     }
 
-    Invoke-NS1APIRequest -URI "$BaseURI/data/feeds/$SourceID" -Method Put -Body ($BodyAsHash | ConvertFrom-Json)
+    Invoke-APIRequest -URI "$BaseURI/data/feeds/$SourceID" -Method Put -Body ($BodyAsHash | ConvertFrom-Json)
 }
 
-Function Set-NS1DataFeed {
+Function Set-DataFeed {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1310,10 +1314,10 @@ Function Set-NS1DataFeed {
         $BodyAsHash.Add("config",$config)
     }
 
-    Invoke-NS1APIRequest -URI "$BaseURI/data/feeds/$SourceID" -Method post -Body ($BodyAsHash | ConvertTo-Json)
+    Invoke-APIRequest -URI "$BaseURI/data/feeds/$SourceID" -Method post -Body ($BodyAsHash | ConvertTo-Json)
 }
 
-Function Remove-NS1DataFeed {
+Function Remove-DataFeed {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1326,10 +1330,10 @@ Function Remove-NS1DataFeed {
         [String]$FeedID
     )
 
-    Invoke-NS1APIRequest -URI "$BaseURI/data/feeds/$SourceID/$FeedID" -Method Delete
+    Invoke-APIRequest -URI "$BaseURI/data/feeds/$SourceID/$FeedID" -Method Delete
 }
 
-Function Set-NS1PublishDataSource {
+Function Set-PublishDataSource {
 <#
 https://ns1.com/api#postpublish-data-from-a-data-source
 #>
@@ -1338,12 +1342,12 @@ https://ns1.com/api#postpublish-data-from-a-data-source
         
     )
 
-    Write-Error "Set-NS1PublishDataSource does not work yet"
+    Write-Error "Set-PublishDataSource does not work yet"
 
 }
 
 # Monitoring & Notifications
-Function Get-NS1MonitoringJob {
+Function Get-MonitoringJob {
 <#
 
 .DESCRIPTION
@@ -1374,10 +1378,10 @@ https://ns1.com/api#get-get-a-monitoring-jobs-details
         "MonitoringJob" {$URI += "/$JobID"}
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 }
 
-Function New-NS1MonitoringJob {
+Function New-MonitoringJob {
 <#
 .DESCRIPTION
 Creates an NS1 Monitoring Job 
@@ -1501,17 +1505,17 @@ Creates an NS1 Monitoring Job
 
     $Body = $BodyAsHash | ConvertTo-Json -Depth 3
 
-    Invoke-NS1APIRequest -URI "$BaseURI/monitoring/jobs" -Method Put -Body $Body
+    Invoke-APIRequest -URI "$BaseURI/monitoring/jobs" -Method Put -Body $Body
 
 }
 
-Function Remove-NS1MonitoringJob {
+Function Remove-MonitoringJob {
 <#
 .DESCRIPTION
 Immediately terminates and deletes an existing monitoring job. There is no response other than the HTTP status code.
 
 .EXAMPLE
-Remove-NS1MonitoringJob -JobID 5b2adb2fa632f6000187fd88
+Remove-MonitoringJob -JobID 5b2adb2fa632f6000187fd88
 
 #>
     [cmdletbinding()]
@@ -1526,11 +1530,11 @@ Remove-NS1MonitoringJob -JobID 5b2adb2fa632f6000187fd88
         [String]$JobID
     )
 
-    Invoke-NS1APIRequest -URI "$BaseURI/monitoring/jobs/$JobID" -Method Delete
+    Invoke-APIRequest -URI "$BaseURI/monitoring/jobs/$JobID" -Method Delete
 
 }
 
-Function Set-NS1MonitoringJob {
+Function Set-MonitoringJob {
 <#
 .DESCRIPTION
 Updates a NS1 MonitoringJob.
@@ -1658,10 +1662,10 @@ Updates a NS1 MonitoringJob.
 
     $Body = $BodyAsHash | ConvertTo-Json -Depth 3
 
-    Invoke-NS1APIRequest -URI "$BaseURI/monitoring/jobs/$JobID" -Method Post -Body $Body
+    Invoke-APIRequest -URI "$BaseURI/monitoring/jobs/$JobID" -Method Post -Body $Body
 }
 
-Function Get-NS1MonitoringJobHistoricStatus {
+Function Get-MonitoringJobHistoricStatus {
     [cmdletbinding()]
     Param(
         [Alias("id")]
@@ -1752,10 +1756,10 @@ Function Get-NS1MonitoringJobHistoricStatus {
         $URI = $URI.TrimEnd("&")
     }
     
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 }
 
-Function Get-NS1MonitoringJobHistoricMetrics {
+Function Get-MonitoringJobHistoricMetrics {
     [cmdletbinding(
         
     )]
@@ -1798,26 +1802,26 @@ Function Get-NS1MonitoringJobHistoricMetrics {
 
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 
 }
 
-Function Get-NS1MonitoringJobTypes {
+Function Get-MonitoringJobTypes {
     [cmdletbinding()]
     Param()
 
-    Invoke-NS1APIRequest -URI "$BaseURI/monitoring/jobtypes" -Method Get
+    Invoke-APIRequest -URI "$BaseURI/monitoring/jobtypes" -Method Get
 }
 
-Function Get-NS1MonitoringRegions {
+Function Get-MonitoringRegions {
     [cmdletbinding()]
     Param()
 
-    Invoke-NS1APIRequest -URI "$BaseURI/monitoring/regions" -Method Get
+    Invoke-APIRequest -URI "$BaseURI/monitoring/regions" -Method Get
 }
 
 # Notification Lists
-Function Get-NS1NotificationList {
+Function Get-NotificationList {
     [cmdletbinding(
         DefaultParameterSetName="AllLists"
     )]
@@ -1838,10 +1842,10 @@ Function Get-NS1NotificationList {
         }
     }
 
-    Invoke-NS1APIRequest -URI $URI -Method Get
+    Invoke-APIRequest -URI $URI -Method Get
 }
 
-Function New-NS1NotificationList {
+Function New-NotificationList {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1871,10 +1875,10 @@ Function New-NS1NotificationList {
 
     $Body = $BodyAsHash | ConvertTo-Json -Depth 3
 
-    Invoke-NS1APIRequest -URI "$BaseURI/lists" -Method Put -Body $Body
+    Invoke-APIRequest -URI "$BaseURI/lists" -Method Put -Body $Body
 }
 
-Function Set-NS1NotificationList {
+Function Set-NotificationList {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1909,10 +1913,10 @@ Function Set-NS1NotificationList {
 
     $Body = $BodyAsHash | ConvertTo-Json -Depth 3
 
-    Invoke-NS1APIRequest -URI "$BaseURI/lists/$ListID" -Method Post -Body $Body
+    Invoke-APIRequest -URI "$BaseURI/lists/$ListID" -Method Post -Body $Body
 }
 
-Function Remove-NS1NotificationList {
+Function Remove-NotificationList {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -1921,27 +1925,27 @@ Function Remove-NS1NotificationList {
         [String]$ListID
     )
 
-    Invoke-NS1APIRequest -URI "$BaseURI/lists/$ListID" -Method Delete
+    Invoke-APIRequest -URI "$BaseURI/lists/$ListID" -Method Delete
 }
 
-Function Get-NS1NotificationTypes {
+Function Get-NotificationTypes {
     [cmdletbinding()]
     Param()
 
-    Invoke-NS1APIRequest -URI "$BaseURI/notificationtypes" -Method Get
+    Invoke-APIRequest -URI "$BaseURI/notificationtypes" -Method Get
 
 }
 
 # Account Management
-Function Get-NS1AccountSettings {
+Function Get-AccountSettings {
     [cmdletbinding()]
     Param()
 
-    Invoke-NS1APIRequest -URI "$BaseURI/account/settings" -Method Get
+    Invoke-APIRequest -URI "$BaseURI/account/settings" -Method Get
 
 }
 
-Function Set-NS1AccountSettings {
+Function Set-AccountSettings {
     [cmdletbinding()]
     Param(
         [Parameter(
@@ -2010,5 +2014,5 @@ Function Set-NS1AccountSettings {
 
     if($Address){$BodyAsHash.Add("address",$Address)}
 
-    Invoke-NS1APIRequest -URI "$BaseURI/account/settings" -Method Post -Body $Body
+    Invoke-APIRequest -URI "$BaseURI/account/settings" -Method Post -Body $Body
 }
