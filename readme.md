@@ -1,9 +1,10 @@
 # Getting started
 1. Import the Module 
-Import-Module NS1Power
 
 2. Set the API key
-Set-KeyFile
+
+Import-Module NS1Power
+Set-NS1KeyFile
 
 This advanced function accepts cmdline info or a secure string object and writes the encrypted output to $KeyPath. From that point on Invoke-APIRequest will read from that file and decrypt the data each time a function is called.
 

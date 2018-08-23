@@ -83,7 +83,9 @@ Don't use cmdlet directly unless necessary.
 .DESCRIPTION
 
 #>
-    [cmdletbinding()]
+    [cmdletbinding(
+        DefaultParameterSetName="NoBody"
+    )]
     param(
         [Parameter(
             ParameterSetName="Body",

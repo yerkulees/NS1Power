@@ -41,9 +41,16 @@ $Functions = 'Find-Zone',
     'Set-NotificationList',
     'Set-PublishDataSource',
     'Set-Record',
-    'Set-Zone'
+    'Set-Zone',
+    'Get-AccountSettings',
+    'Set-AccountSettings',
+    'Get-OverageAlertingSettings',
+    'Set-OverageAlertingSettings',
+    'New-AccountUser',
+    'Set-AccountUser'
 
 $ModuleAlias = "Get-Zone",
-    "Get-Record"
+    "Get-Record","New-User",
+    "Set-User"
 
 Export-ModuleMember -Function $Functions -Alias $ModuleAlias
