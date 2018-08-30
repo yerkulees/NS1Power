@@ -47,7 +47,10 @@ $Functions = 'Find-Zone',
     'Get-OverageAlertingSettings',
     'Set-OverageAlertingSettings',
     'New-AccountUser',
-    'Set-AccountUser'
+    'Set-AccountUser',
+    'Set-DmarcRecord',
+    'New-DmarcRecord',
+    'New-DmarcReportDomain'
 
 $ModuleAlias = "Get-Zone",
     "Get-Record","New-User",
