@@ -149,7 +149,7 @@ Don't use cmdlet directly unless necessary.
         Write-Verbose ("X-RateLimit-Period: " + $WebResponse.headers.'X-RateLimit-Period')
 
         # Output
-        $WebResponse.content | ConvertFrom-Json
+        ($WebResponse.content | ConvertFrom-Json)
     }catch{
         $Err = $_
         Write-Debug "Error: $($err.Exception.Response.StatusCode.value__)"
