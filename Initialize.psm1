@@ -50,7 +50,9 @@ $Functions = 'Find-Zone',
     'Set-AccountUser',
     'Set-DmarcRecord',
     'New-DmarcRecord',
-    'New-DmarcReportDomain'
+    'New-DmarcReportDomain',
+    'Set-KeyContext',
+    'Get-KeyContext'
 
 $ModuleAlias = "Get-Zone",
     "Get-Record","New-User",

@@ -40,26 +40,92 @@ Sends a Secure String Object through the pipeline to be used as the API Key
             ValueFromPipeline=$true,
             Position=0
         )]
-        [System.Security.SecureString]$SecureString
+        [System.Security.SecureString]$SecureString,
+        # Sets the file name for the current secure string so that multiple NS1 API keys can be used
+        [Parameter(
+            ParameterSetName="ReadHost",
+            ValueFromPipeline=$true,
+            Position=0
+        )]
+        [Parameter(
+            ParameterSetName="SecureStringObject",
+            ValueFromPipeline=$true,
+            Position=1
+        )]
+        [string]
+        $Name=$DefaultKeyName,
+        # Sets the key context to the currently named key
+        [Parameter(
+            ParameterSetName="ReadHost",
+            ValueFromPipeline=$true,
+            Position=1
+        )]
+        [Parameter(
+            ParameterSetName="SecureStringObject",
+            ValueFromPipeline=$true,
+            Position=2
+        )]
+        [switch]
+        $SetContext
+        
     )
-
-    Switch($PSCmdlet.ParameterSetName){
-        "Readhost" {
-            Read-Host -Prompt "Enter API Key:" -AsSecureString | Export-Clixml -Path $KeyPath
+    # Make sure the path exists before attempting to create the key file.
+    if(!(Test-Path $KeyDirectory)){
+        Write-Error -Message "Key folder path does not exist. Check the Environment.ps1 file, create the keyfile path ($KeyDirectory) before running this command."
+    }else{
+        Push-Location
+        Set-Location $KeyDirectory
+        Switch($PSCmdlet.ParameterSetName){
+            "Readhost" {
+                Read-Host -Prompt "Enter API Key:" -AsSecureString | Export-Clixml -Path $Name
+            }
+            "SecureStringObject" {
+                $SecureString | Export-Clixml -Path $Name
+            }
         }
-        "SecureStringObject" {
-            $SecureString | Export-Clixml -Path $KeyPath
-        }
+        Pop-Location
     }
-    
+    if($SetContext){
+        Set-KeyContext -Name $Name
+    }
+}
+function Set-KeyContext {
+    [CmdletBinding()]
+    param (
+        [Parameter(
+            ValueFromPipeline=$true,
+            Mandatory=$false,
+            Position=0
+        )]
+        [String]
+        $Name=$DefaultKeyName
+    )
+    if(Test-Path $KeyDirectory){
+        Push-Location
+        Set-Location -Path $KeyDirectory
+        if(Test-Path $Name){
+            $Script:CurrentContextKey =  $(Get-Item $Name).FullName
+        }else{
+            $answer = Read-Host -Prompt "Could not find key using ($Name). Would you like to create it? 'yes' to continue. Any other answer is no"
+            if($answer -in "y","yes"){
+                Set-KeyFile -Name $Name -SetContext
+            }
+        }
+        Pop-Location
+    }else{
+        Write-Error "Key directory ($KeyDirectory) does not exist."
+    }
+}
+Function Get-KeyContext {
+    $CurrentContextKey
 }
 
 Function Get-APIKey {
-    if(Test-Path $KeyPath){
+    if(Test-Path $CurrentContextKey){
         try{
-            $SecurePassword = Import-Clixml $KeyPath
+            $SecurePassword = Import-Clixml $CurrentContextKey
         }catch{
-            $SecurePassword = Get-Content $KeyPath | ConvertTo-SecureString
+            $SecurePassword = Get-Content $CurrentContextKey | ConvertTo-SecureString
         }
 
         $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePassword)
@@ -78,7 +144,7 @@ Function Invoke-APIRequest {
 
 .SYNOPSIS
 This function handles the actual web request, api limiting, and error handling for the NS1Power.
-Don't use cmdlet directly unless necessary.
+Don't use this function directly unless necessary.
 
 .DESCRIPTION
 
@@ -138,6 +204,7 @@ Don't use cmdlet directly unless necessary.
     }
 
     try{
+        # Invokes the command. Uses Get-Headers function to get headers for API Authentication
         $WebResponse = Invoke-WebRequest @splat -Headers $(Get-Headers)
 
         # Set the limit data here
@@ -575,7 +642,7 @@ Removes an A record
     param(
         [Parameter(
             Position=0,
-            ValueFromPipeline=$true,
+            ValueFromPipelineByPropertyName=$true,
             ParameterSetName="Zone",
             Mandatory=$true
         )]
@@ -1454,13 +1521,13 @@ Creates an NS1 Monitoring Job
         [ValidateScript({ $_.key -and $_.comparison -and $_.value })]
         [Parameter(
             ParameterSetName="MonitoringJob",
-            Mandatory = $true,
+            Mandatory = $false,
             HelpMessage = 'Use a powershell hash table, do not use json. A list of rules for determining failure conditions. Each rule acts on one of the outputs from the monitoring job. You must specify key (the output key); comparison (a comparison to perform on the the output); and value (the value to compare to). For example, {"key":"rtt", "comparison":"<", "value":100} is a rule requiring the rtt from a job to be under 100ms, or the job will be marked failed.'
         )]
         [HashTable[]]$rules,
         [Parameter(
             ParameterSetName="MonitoringJob",
-            Mandatory = $false,
+            Mandatory = $true,
             HelpMessage = 'time in seconds after a failure to wait before sending a notification. If the job is marked "up" before this time expires, no notification is sent. Set to 0 to send a notification immediately upon failure.'
         )]
         [int]$notify_delay,
@@ -1495,15 +1562,16 @@ Creates an NS1 Monitoring Job
         "name"= $Name;
         "job_type" = $job_type;
         "region_scope" = $region_scope;
-        "regions" = ($regions | ForEach-Object ToLower) ;
+        "regions" = @($($regions | ForEach-Object ToLower)) ;
         "frequency" = $frequency;
         "config" = $config;
-        "rules" = $rules;
+        "rules" = @($rules);
         "notify_list"= $notify_list
     }
 
     if($notify_failback){$BodyAsHash.Add("notify_failback",$notify_failback)}
     if($notify_regional){$BodyAsHash.Add("notify_regional",$notify_regional)}
+    if($policy){$BodyAsHash.Add("policy",$policy)}
 
     $Body = $BodyAsHash | ConvertTo-Json -Depth 3
 
@@ -1529,6 +1597,7 @@ Remove-MonitoringJob -JobID 5b2adb2fa632f6000187fd88
             ValueFromPipelineByPropertyName=$true,
             HelpMessage = 'JobID'
         )]
+        [Alias("id")]
         [String]$JobID
     )
 
@@ -1549,8 +1618,10 @@ Updates a NS1 MonitoringJob.
     Param(
         [Parameter(
             ParameterSetName="MonitoringJob",
+            ValueFromPipeline=$true,
             Mandatory = $true
         )]
+        [Alias("id")]
         [String]$JobID,
         [Parameter(
             ParameterSetName="MonitoringJob",
@@ -1654,10 +1725,10 @@ Updates a NS1 MonitoringJob.
     if($Name){$BodyAsHash.Add("name",$Name)}
     if($job_type){$BodyAsHash.Add("job_type",$job_type)}
     if($region_scope){$BodyAsHash.Add("region_scope",$region_scope)}
-    if($regions){$BodyAsHash.Add("region_scope",($regions | ForEach-Object ToLower))}
+    if($regions){$BodyAsHash.Add(@("region_scope",($regions | ForEach-Object ToLower)))}
     if($frequency){$BodyAsHash.Add("frequency",$frequency)}
     if($config){$BodyAsHash.Add("config",$config)}
-    if($rules){$BodyAsHash.Add("rules",$rules)}
+    if($rules){$BodyAsHash.Add(@("rules",$rules))}
     if($notify_list){$BodyAsHash.Add("notify_list",$notify_list)}
     if($notify_failback){$BodyAsHash.Add("notify_failback",$notify_failback)}
     if($notify_regional){$BodyAsHash.Add("notify_regional",$notify_regional)}
@@ -1766,7 +1837,9 @@ Function Get-MonitoringJobHistoricMetrics {
         
     )]
     Param(
+        [Alias("id")]
         [Parameter(
+            ValueFromPipeline=$true,
             Mandatory = $false
         )]
         [String]$JobID,
@@ -1864,6 +1937,8 @@ Function New-NotificationList {
         [string[]]$SourceID
     )
 
+    [System.Collections.ArrayList]$List
+    
     $List = foreach($addr in $Email){
         @{"type"="email";"config"= @{ "email"=$addr}}
     }
@@ -2015,6 +2090,8 @@ Function Set-AccountSettings {
     }
 
     if($Address){$BodyAsHash.Add("address",$Address)}
+
+    $Body = $BodyAsHash | ConvertTo-Json -Depth 3
 
     Invoke-APIRequest -URI "$BaseURI/account/settings" -Method Post -Body $Body
 }
