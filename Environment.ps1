@@ -1,13 +1,7 @@
 ﻿# Set Environment
-# Left $KeyPath for backward compatibility. Is this necessary? No
-# $KeyPath = "$HOME\.NS1Power\SecureString.txt"
-if($KeyPath){
-    $KeyDirectory = Split-Path $KeyPath
-    $DefaultKeyName = Split-Path $KeyPath -Leaf
-}else{
-    $KeyDirectory = "$PSScriptRoot\Local"
-    $DefaultKeyName = "SecureString.txt"
-}
+# Sets the location for encrypted key files
+$KeyDirectory = "$PSScriptRoot\Local"
+$DefaultKeyName = "SecureString.txt"
 
 # Variable used by Get-APIKey for accessing API information
 $CurrentContextKey = "$KeyDirectory\$DefaultKeyName"
