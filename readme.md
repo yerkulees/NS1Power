@@ -22,3 +22,27 @@ Unfortunately the request and response keys don't always match up so its not eas
 
 # API Key
 The API key is protected using the secure string method used by powershell to encrypt all credentials.
+
+# Key Context
+You can now use multiple API keys and switch between them using Set-NS1KeyContext.
+```
+PS #> Set-NS1KeyFile -Name "MyAwesomeKey.txt" -SetContext
+PS #> Get-NS1Zone
+*Results*
+PS #> Set-NS1KeyContext
+PS #> Get-NS1Zone
+*Results*
+PS #> Set-NS1KeyContext -Name "MyAwesomeKey.txt"
+```
+The first advanced function creates a key and sets the context so that all commands following use the newly created key. The first Get-NS1Zone uses "MyAwesomeKey.txt". The first Set-NS1KeyContext sets the context back to the default "SecureString.txt" so the second Get-NS1Zone uses that default key. Then Set-NS1KeyContext sets the key back to "MyAwesomeKey.txt".
+
+You can check your current key context using Get-NS1KeyContext. 
+```
+PS #> Set-NS1KeyContext
+PS #> Get-NS1KeyContext
+C:\Users\UserName\Documents\Powershell\NS1Power\Local\SecureString.txt
+PS #> Set-NS1KeyContext -Name "MySecondAwesomeKey.txt"
+PS #> Get-NS1KeyContext
+C:\Users\UserName\Documents\Powershell\NS1Power\Local\MyAwesomeContext.txt
+```
+This advanced function inelegantly returns the full file path of the key file.
